@@ -1,0 +1,250 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  username    String   @unique
+  name        String
+  bio         String?
+  avatar      String?
+  verified    Boolean  @default(false)
+  role        UserRole @default(RESEARCHER)
+  
+  // Academic info
+  institution String?
+  department  String?
+  position    String?
+  orcid       String?
+  
+  // Social
+  followers   Follow[] @relation("UserFollowers")
+  following   Follow[] @relation("UserFollowing")
+  
+  // Content
+  papers      PaperAuthor[]
+  reviews     Review[]
+  comments    Comment[]
+  likes       Like[]
+  bookmarks   Bookmark[]
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("users")
+}
+
+model Follow {
+  id          String @id @default(cuid())
+  followerId  String
+  followingId String
+  
+  follower    User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+model Paper {
+  id          String     @id @default(cuid())
+  title       String
+  abstract    String
+  content     String?    // Full paper content
+  doi         String?    @unique
+  arxivId     String?    @unique
+  
+  // Metadata
+  keywords    String[]
+  language    String     @default("ar")
+  status      PaperStatus @default(DRAFT)
+  category    Category   @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  
+  // Authors
+  authors     PaperAuthor[]
+  
+  // Engagement
+  views       Int        @default(0)
+  downloads   Int        @default(0)
+  citations   Citation[] @relation("CitedPaper")
+  citedBy     Citation[] @relation("CitingPaper")
+  reviews     Review[]
+  comments    Comment[]
+  likes       Like[]
+  bookmarks   Bookmark[]
+  
+  // Files
+  pdfUrl      String?
+  attachments String[]
+  
+  // Timestamps
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@map("papers")
+}
+
+model PaperAuthor {
+  id       String @id @default(cuid())
+  paperId  String
+  userId   String
+  order    Int
+  
+  paper    Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([paperId, userId])
+  @@map("paper_authors")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  nameAr      String   @unique
+  description String?
+  color       String   @default("#3B82F6")
+  icon        String?
+  
+  papers      Paper[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("categories")
+}
+
+model Review {
+  id          String       @id @default(cuid())
+  paperId     String
+  reviewerId  String
+  
+  rating      Int          // 1-5 stars
+  title       String
+  content     String
+  status      ReviewStatus @default(PENDING)
+  
+  paper       Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  reviewer    User  @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  
+  // Engagement
+  likes       Like[]
+  comments    Comment[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([paperId, reviewerId])
+  @@map("reviews")
+}
+
+model Comment {
+  id        String  @id @default(cuid())
+  content   String
+  authorId  String
+  
+  // Polymorphic relations
+  paperId   String?
+  reviewId  String?
+  parentId  String? // For nested comments
+  
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  paper     Paper?   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  review    Review?  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  
+  // Engagement
+  likes     Like[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("comments")
+}
+
+model Like {
+  id        String @id @default(cuid())
+  userId    String
+  
+  // Polymorphic relations
+  paperId   String?
+  reviewId  String?
+  commentId String?
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper     Paper?   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  review    Review?  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, paperId])
+  @@unique([userId, reviewId])
+  @@unique([userId, commentId])
+  @@map("likes")
+}
+
+model Bookmark {
+  id      String @id @default(cuid())
+  userId  String
+  paperId String
+  
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper   Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, paperId])
+  @@map("bookmarks")
+}
+
+model Citation {
+  id            String @id @default(cuid())
+  citingPaperId String
+  citedPaperId  String
+  context       String? // Context where citation appears
+  
+  citingPaper   Paper @relation("CitingPaper", fields: [citingPaperId], references: [id], onDelete: Cascade)
+  citedPaper    Paper @relation("CitedPaper", fields: [citedPaperId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([citingPaperId, citedPaperId])
+  @@map("citations")
+}
+
+enum UserRole {
+  RESEARCHER
+  REVIEWER
+  EDITOR
+  ADMIN
+}
+
+enum PaperStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
