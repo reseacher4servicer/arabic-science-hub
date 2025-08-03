@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import Link from "next/link";
+import LikeButton from "@/components/features/like-button";
+import BookmarkButton from "@/components/features/bookmark-button";
+import CommentList from "@/components/features/comment-list";
 
 interface Paper {
   id: string;
@@ -43,6 +46,19 @@ export default function PaperDetailPage() {
 
     fetchPaper();
   }, [params.id]);
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: paper?.title,
+        text: paper?.abstract,
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert("تم نسخ الرابط إلى الحافظة");
+    }
+  };
 
   if (loading) {
     return (
@@ -142,21 +158,23 @@ export default function PaperDetailPage() {
           {/* Actions */}
           <div className="p-8 border-t border-gray-200 bg-gray-50">
             <div className="flex flex-wrap gap-4">
-              <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                👍 إعجاب
-              </button>
-              <button className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-                💾 حفظ
-              </button>
-              <button className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                📤 مشاركة
-              </button>
-              <button className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
-                📝 تعليق
+              <LikeButton paperId={paper.id} />
+              <BookmarkButton paperId={paper.id} />
+              <button 
+                onClick={handleShare}
+                className="flex items-center space-x-1 bg-gray-100 text-gray-600 hover:bg-gray-200 px-3 py-2 rounded-md transition-colors"
+              >
+                <span>📤</span>
+                <span>مشاركة</span>
               </button>
             </div>
           </div>
         </article>
+
+        {/* Comments Section */}
+        <div className="mt-12 bg-white rounded-lg shadow-md p-8">
+          <CommentList paperId={paper.id} />
+        </div>
 
         {/* Related Papers Section (Placeholder) */}
         <div className="mt-12">
