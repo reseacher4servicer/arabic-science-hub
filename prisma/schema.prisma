@@ -90,6 +90,7 @@ model Paper {
   // Files
   pdfUrl      String?
   attachments String[]
+  fileUrl     String? // New field for uploaded PDF file URL
   
   // Timestamps
   publishedAt DateTime?
@@ -274,5 +275,6 @@ enum NotificationType {
   REVIEW
   MENTION
 }
+
 
 

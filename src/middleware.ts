@@ -17,10 +17,19 @@ export default withAuth(
           return true;
         }
         
+        // السماح بالوصول لصفحات الأوراق العامة
+        if (req.nextUrl.pathname === "/papers" || 
+            req.nextUrl.pathname.match(/^\/papers\/[^\/]+$/)) {
+          return true;
+        }
+        
         // طلب المصادقة للصفحات المحمية
         if (req.nextUrl.pathname.startsWith("/profile") || 
             req.nextUrl.pathname.startsWith("/dashboard") ||
-            req.nextUrl.pathname.startsWith("/papers/create")) {
+            req.nextUrl.pathname.startsWith("/papers/create") ||
+            req.nextUrl.pathname.startsWith("/papers/submit") ||
+            req.nextUrl.pathname.startsWith("/saved") ||
+            req.nextUrl.pathname.startsWith("/notifications")) {
           return !!token;
         }
         

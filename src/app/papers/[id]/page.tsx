@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import LikeButton from "@/components/features/like-button";
 import BookmarkButton from "@/components/features/bookmark-button";
 import CommentList from "@/components/features/comment-list";
+import ReviewForm from "@/components/features/review-form";
+import ReviewList from "@/components/features/review-list";
 
 interface Paper {
   id: string;
@@ -24,9 +27,11 @@ interface Paper {
 export default function PaperDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const [paper, setPaper] = useState<Paper | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"content" | "reviews" | "comments">("content");
 
   useEffect(() => {
     const fetchPaper = async () => {
@@ -59,6 +64,8 @@ export default function PaperDetailPage() {
       alert("تم نسخ الرابط إلى الحافظة");
     }
   };
+
+  const canReview = session?.user && ["REVIEWER", "EDITOR", "ADMIN"].includes((session.user as any).role);
 
   if (loading) {
     return (
@@ -143,21 +150,9 @@ export default function PaperDetailPage() {
                 {paper.abstract}
               </p>
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="p-8">
-            <div className="prose prose-lg max-w-none">
-              <div 
-                className="text-gray-800 leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: paper.content }}
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="p-8 border-t border-gray-200 bg-gray-50">
-            <div className="flex flex-wrap gap-4">
+            {/* Actions */}
+            <div className="mt-6 flex flex-wrap gap-4">
               <LikeButton paperId={paper.id} />
               <BookmarkButton paperId={paper.id} />
               <button 
@@ -169,12 +164,77 @@ export default function PaperDetailPage() {
               </button>
             </div>
           </div>
-        </article>
 
-        {/* Comments Section */}
-        <div className="mt-12 bg-white rounded-lg shadow-md p-8">
-          <CommentList paperId={paper.id} />
-        </div>
+          {/* Tabs */}
+          <div className="border-b border-gray-200">
+            <nav className="flex space-x-8 px-8">
+              <button
+                onClick={() => setActiveTab("content")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "content"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                المحتوى
+              </button>
+              <button
+                onClick={() => setActiveTab("reviews")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "reviews"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                المراجعات
+              </button>
+              <button
+                onClick={() => setActiveTab("comments")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "comments"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                التعليقات
+              </button>
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-8">
+            {activeTab === "content" && (
+              <div className="prose prose-lg max-w-none">
+                <div 
+                  className="text-gray-800 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: paper.content }}
+                />
+              </div>
+            )}
+
+            {activeTab === "reviews" && (
+              <div className="space-y-8">
+                {/* Review Form for Reviewers */}
+                {canReview && (
+                  <ReviewForm 
+                    paperId={paper.id} 
+                    onSuccess={() => {
+                      // Refresh reviews list
+                      window.location.reload();
+                    }}
+                  />
+                )}
+
+                {/* Reviews List */}
+                <ReviewList paperId={paper.id} />
+              </div>
+            )}
+
+            {activeTab === "comments" && (
+              <CommentList paperId={paper.id} />
+            )}
+          </div>
+        </article>
 
         {/* Related Papers Section (Placeholder) */}
         <div className="mt-12">
