@@ -6,65 +6,78 @@ export const papersRouter = createTRPCRouter({
     .input(
       z.object({
         limit: z.number().min(1).max(100).default(10),
-        cursor: z.string().optional(),
+        page: z.number().min(1).default(1),
         categoryId: z.string().optional(),
         search: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const { limit, cursor, categoryId, search } = input;
+      const { limit, page, categoryId, search } = input;
+      const skip = (page - 1) * limit;
       
-      const papers = await ctx.db.paper.findMany({
-        take: limit + 1,
-        cursor: cursor ? { id: cursor } : undefined,
-        where: {
-          status: 'PUBLISHED',
-          ...(categoryId && { categoryId }),
-          ...(search && {
-            OR: [
-              { title: { contains: search, mode: 'insensitive' } },
-              { abstract: { contains: search, mode: 'insensitive' } },
-              { keywords: { hasSome: [search] } },
-            ],
-          }),
-        },
-        include: {
-          authors: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  username: true,
-                  avatar: true,
+      const where = {
+        status: 'PUBLISHED',
+        ...(categoryId && { categoryId }),
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { abstract: { contains: search, mode: 'insensitive' } },
+            { keywords: { hasSome: [search] } },
+          ],
+        }),
+      };
+
+      const [papers, total] = await Promise.all([
+        ctx.db.paper.findMany({
+          take: limit,
+          skip,
+          where,
+          include: {
+            authors: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    avatar: true,
+                  },
                 },
               },
             },
-          },
-          category: true,
-          _count: {
-            select: {
-              likes: true,
-              comments: true,
-              bookmarks: true,
-              citations: true,
+            category: true,
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+                bookmarks: true,
+                citations: true,
+              },
             },
           },
-        },
-        orderBy: {
-          publishedAt: 'desc',
-        },
-      });
+          orderBy: {
+            publishedAt: 'desc',
+          },
+        }),
+        ctx.db.paper.count({ where }),
+      ]);
 
-      let nextCursor: typeof cursor | undefined = undefined;
-      if (papers.length > limit) {
-        const nextItem = papers.pop();
-        nextCursor = nextItem!.id;
-      }
+      // تحويل البيانات للتوافق مع المكونات
+      const formattedPapers = papers.map(paper => ({
+        id: paper.id,
+        title: paper.title,
+        abstract: paper.abstract,
+        authorName: paper.authors[0]?.user.name || 'مؤلف غير معروف',
+        categoryName: paper.category.name,
+        createdAt: paper.createdAt,
+        viewCount: paper.views,
+      }));
 
       return {
-        papers,
-        nextCursor,
+        papers: formattedPapers,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
       };
     }),
 
@@ -143,7 +156,19 @@ export const papersRouter = createTRPCRouter({
         data: { views: { increment: 1 } },
       });
 
-      return paper;
+      // تنسيق البيانات للتوافق مع المكونات
+      return {
+        id: paper.id,
+        title: paper.title,
+        abstract: paper.abstract,
+        content: paper.content || '',
+        authorName: paper.authors[0]?.user.name || 'مؤلف غير معروف',
+        categoryName: paper.category.name,
+        createdAt: paper.createdAt,
+        updatedAt: paper.updatedAt,
+        viewCount: paper.views,
+        tags: paper.keywords,
+      };
     }),
 
   create: protectedProcedure
