@@ -38,11 +38,32 @@ model User {
   bookmarks   Bookmark[]
   notifications Notification[]
   
+  // Researcher Profile for Ranking
+  researcherProfile ResearcherProfile? // One-to-one relation
+
   // Timestamps
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@map("users")
+}
+
+model ResearcherProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totalScore      Float    @default(0)
+  papersCount     Int      @default(0)
+  reviewsCount    Int      @default(0)
+  avgReviewRating Float    @default(0)
+  likesReceived   Int      @default(0)
+  commentsMade    Int      @default(0)
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("researcher_profiles")
 }
 
 model Follow {
@@ -275,6 +296,8 @@ enum NotificationType {
   REVIEW
   MENTION
 }
+
+
 
 
 
