@@ -40,6 +40,8 @@ model User {
   
   // Researcher Profile for Ranking
   researcherProfile ResearcherProfile? // One-to-one relation
+  userPoints        UserPoints? // One-to-one relation
+  userAchievements  UserAchievement[]
 
   // Timestamps
   createdAt   DateTime @default(now())
@@ -299,5 +301,50 @@ enum NotificationType {
 
 
 
+
+
+
+
+model UserPoints {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  totalPoints Int      @default(0)
+  history     Json     @default("[]") // Store interaction details as JSON array
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_points")
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  threshold   Int      // Points required to unlock
+  icon        String?  // Icon name or URL
+  category    String   // e.g., "نشر", "مراجعة", "تفاعل"
+  userAchievements UserAchievement[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
 
 

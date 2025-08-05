@@ -7,6 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { PaperCard } from "~/components/features/paper-card";
+import { AchievementBadge } from "~/components/features/achievement-badge";
 import { api } from "~/lib/api";
 import {
   User,
@@ -24,6 +25,8 @@ import {
   Award,
   Loader2,
   ExternalLink,
+  Target,
+  Crown,
 } from "lucide-react";
 
 export default function ResearcherProfilePage() {
@@ -38,6 +41,29 @@ export default function ResearcherProfilePage() {
     { userId },
     { enabled: !!userId }
   );
+
+  // جلب بيانات النقاط والإنجازات للباحث
+  const { data: userPoints } = api.points.getUserPoints.useQuery(
+    undefined,
+    { enabled: !!userId }
+  );
+  
+  const { data: userAchievements } = api.points.getUserAchievements.useQuery(
+    undefined,
+    { enabled: !!userId }
+  );
+
+  const { data: allAchievements } = api.points.getAllAchievements.useQuery();
+
+  // دالة لتحديد الرتبة بناءً على النقاط
+  const getUserRank = (points: number) => {
+    if (points >= 1000) return { title: "الأسطورة العلمية", icon: "👑", color: "text-yellow-600" };
+    if (points >= 500) return { title: "الخبير المعترف به", icon: "🏆", color: "text-purple-600" };
+    if (points >= 250) return { title: "الناشر النشيط", icon: "📚", color: "text-blue-600" };
+    if (points >= 100) return { title: "النجم الصاعد", icon: "⭐", color: "text-green-600" };
+    if (points >= 50) return { title: "الباحث المبتدئ", icon: "🌟", color: "text-orange-600" };
+    return { title: "عضو جديد", icon: "👤", color: "text-gray-600" };
+  };
 
   if (isLoading) {
     return (
@@ -208,6 +234,98 @@ export default function ResearcherProfilePage() {
               {researcher.stats.totalViews}
             </div>
             <div className="text-sm text-gray-600">مشاهدة</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* النقاط والإنجازات */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        {/* النقاط والرتبة */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-blue-600" />
+              النقاط والرتبة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {userPoints ? (
+              <div className="space-y-4">
+                {/* النقاط الإجمالية */}
+                <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                  <div className="text-3xl font-bold text-blue-600">
+                    {userPoints.totalPoints}
+                  </div>
+                  <div className="text-sm text-gray-600">نقطة إجمالية</div>
+                </div>
+
+                {/* الرتبة */}
+                {(() => {
+                  const rank = getUserRank(userPoints.totalPoints);
+                  return (
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className={`text-2xl mb-2 ${rank.color}`}>
+                        {rank.icon}
+                      </div>
+                      <div className={`font-bold ${rank.color}`}>
+                        {rank.title}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* عدد الإنجازات */}
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {userAchievements?.length || 0}
+                  </div>
+                  <div className="text-sm text-gray-600">إنجاز محقق</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-4">
+                لا توجد بيانات نقاط متاحة
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* الإنجازات المحققة */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-purple-600" />
+              الإنجازات المحققة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {userAchievements && userAchievements.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {userAchievements.slice(0, 6).map((userAchievement) => (
+                  <AchievementBadge
+                    key={userAchievement.id}
+                    achievement={userAchievement.achievement}
+                    userAchievement={userAchievement}
+                    currentPoints={userPoints?.totalPoints || 0}
+                    size="sm"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                <Award className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p>لم يحقق أي إنجازات بعد</p>
+                <p className="text-sm mt-2">ابدأ بنشر الأوراق والمراجعات لتحصل على إنجازات!</p>
+              </div>
+            )}
+            
+            {userAchievements && userAchievements.length > 6 && (
+              <div className="text-center mt-4">
+                <Button variant="outline" size="sm">
+                  عرض جميع الإنجازات ({userAchievements.length})
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
